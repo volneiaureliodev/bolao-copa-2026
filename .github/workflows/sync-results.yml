@@ -1,0 +1,29 @@
+name: Sync Football Results
+
+on:
+  schedule:
+    # Every hour at :05 — gives Vercel functions time to warm up
+    - cron: '5 * * * *'
+  workflow_dispatch:
+    # Manual trigger via GitHub Actions UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync endpoint
+        run: |
+          RESPONSE=$(curl -sf -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/update-results")
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "Status: $HTTP_STATUS"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::warning::Sync returned $HTTP_STATUS"
+          fi
