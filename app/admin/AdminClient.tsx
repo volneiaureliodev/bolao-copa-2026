@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import type { GameWithResult, Score, PredictionWithProfile } from '@/lib/types'
+import type { GameWithResult, Score, PredictionWithProfile, SyncResult } from '@/lib/types'
 import RankingTable from '@/components/RankingTable'
 import { formatDate } from '@/lib/utils'
 
@@ -9,7 +9,7 @@ type Props = {
   scores: Score[]
 }
 
-type Tab = 'resultados' | 'ranking' | 'palpites'
+type Tab = 'resultados' | 'ranking' | 'palpites' | 'sincronizacao'
 
 export default function AdminClient({ games, scores }: Props) {
   const [tab, setTab] = useState<Tab>('resultados')
@@ -40,7 +40,7 @@ export default function AdminClient({ games, scores }: Props) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mb-0">
+      <div className="flex gap-1 border-b border-gray-200 mb-0 flex-wrap">
         <button className={tabCls('resultados')} onClick={() => setTab('resultados')}>
           📋 Resultados
         </button>
@@ -50,6 +50,9 @@ export default function AdminClient({ games, scores }: Props) {
         <button className={tabCls('palpites')} onClick={() => setTab('palpites')}>
           🔍 Palpites por jogo
         </button>
+        <button className={tabCls('sincronizacao')} onClick={() => setTab('sincronizacao')}>
+          🔄 Sincronização
+        </button>
       </div>
 
       <div className="bg-white border border-t-0 border-gray-200 rounded-b-xl rounded-tr-xl p-6">
@@ -58,6 +61,7 @@ export default function AdminClient({ games, scores }: Props) {
         )}
         {tab === 'ranking' && <RankingTable scores={scores} />}
         {tab === 'palpites' && <PalpitesTab games={gamesState} />}
+        {tab === 'sincronizacao' && <SincronizacaoTab />}
       </div>
     </div>
   )
@@ -287,6 +291,124 @@ function PalpitesTab({ games }: { games: GameWithResult[] }) {
       {!loading && selectedId && predictions.length === 0 && !err && (
         <p className="text-sm text-gray-400">Nenhum palpite registrado para este jogo.</p>
       )}
+    </div>
+  )
+}
+
+// ── Sincronização Tab ───────────────────────────────────────────
+function SincronizacaoTab() {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<SyncResult | null>(null)
+
+  async function handleSync() {
+    setLoading(true)
+    setResult(null)
+    try {
+      const res = await fetch('/api/admin/sync', { method: 'POST' })
+      const data: SyncResult = await res.json()
+      setResult(data)
+    } catch {
+      setResult({
+        updated: 0,
+        log: ['✗ Falha de rede ao chamar a API de sincronização.'],
+        timestamp: new Date().toISOString(),
+        error: 'network_error',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Status do cron automático */}
+      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+        <span className="relative flex h-2.5 w-2.5 shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-green-800">Sincronização automática ativa</p>
+          <p className="text-xs text-green-600">Vercel Cron Jobs — a cada 5 minutos</p>
+        </div>
+      </div>
+
+      {/* Sincronização manual */}
+      <div>
+        <h3 className="font-semibold text-gray-700 mb-1">Sincronização manual</h3>
+        <p className="text-xs text-gray-400 mb-3">
+          Consulta a API-Football agora e atualiza resultados de jogos encerrados.
+        </p>
+        <button
+          onClick={handleSync}
+          disabled={loading}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Sincronizando…
+            </>
+          ) : (
+            '🔄 Sincronizar Resultados Agora'
+          )}
+        </button>
+      </div>
+
+      {/* Log da última sincronização */}
+      {result && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-gray-700">Resultado da sincronização</h3>
+            <span className="text-xs text-gray-400">
+              {new Date(result.timestamp).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+            </span>
+          </div>
+          <div
+            className={`rounded-lg border p-4 font-mono text-sm space-y-0.5 ${
+              result.error
+                ? 'border-red-200 bg-red-50'
+                : result.updated > 0
+                ? 'border-green-200 bg-green-50'
+                : 'border-gray-200 bg-gray-50'
+            }`}
+          >
+            {result.log.map((line, i) => (
+              <p
+                key={i}
+                className={
+                  line.includes('✓')
+                    ? 'text-green-700'
+                    : line.includes('✗')
+                    ? 'text-red-600'
+                    : 'text-gray-600'
+                }
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+          {result.updated > 0 && (
+            <p className="mt-2 text-sm font-semibold text-green-700">
+              {result.updated} resultado(s) salvo(s). Recarregue a página para ver os placar atualizados.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Notas técnicas */}
+      <details className="text-xs text-gray-400 cursor-pointer">
+        <summary className="font-medium select-none">ℹ️ Detalhes técnicos</summary>
+        <ul className="mt-2 space-y-1 list-disc list-inside">
+          <li>Fonte: API-Football v3 (RapidAPI) — Liga 1, temporada 2026</li>
+          <li>Status aceitos: FT, AET, PEN (90 min após o horário do jogo)</li>
+          <li>Plano gratuito: 100 req/dia — suficiente para uso moderado</li>
+          <li>Logs do cron disponíveis em: Vercel Dashboard → Logs</li>
+        </ul>
+      </details>
     </div>
   )
 }

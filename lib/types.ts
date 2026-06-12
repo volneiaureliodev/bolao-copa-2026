@@ -56,3 +56,10 @@ export type GameWithResult = Game & {
 export type PredictionWithProfile = Prediction & {
   profiles: { nome: string }
 }
+
+export type SyncResult = {
+  updated: number
+  log: string[]
+  timestamp: string
+  error?: string
+}
