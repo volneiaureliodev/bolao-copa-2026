@@ -3,8 +3,6 @@ import RankingTable from '@/components/RankingTable'
 import Link from 'next/link'
 import type { Score } from '@/lib/types'
 
-export const revalidate = 60
-
 export default async function HomePage() {
   let user = null
   let scores = null

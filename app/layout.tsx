@@ -3,6 +3,8 @@ import './globals.css'
 import { createClient } from '@/lib/supabase/server'
 import Header from '@/components/Header'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Bolão Copa 2026',
   description: 'Faça seus palpites e dispute com os amigos na Copa do Mundo 2026!',

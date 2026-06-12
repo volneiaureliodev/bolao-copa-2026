@@ -2,8 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import RankingTable from '@/components/RankingTable'
 import type { Score } from '@/lib/types'
 
-export const revalidate = 60
-
 export default async function RankingPage() {
   let user = null
   let scores = null
